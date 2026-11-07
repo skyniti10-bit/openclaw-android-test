@@ -47,6 +47,47 @@ jobs:
         working-directory: apps/android
         run: ./gradlew :app:assembleThirdPartyDebug --no-daemon
 
+      - name: Inspect APK checksum signature and permissions
+        working-directory: apps/android
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apk-inspection
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/thirdParty/debug/*.apk)
+          test "${#apks[@]}" -eq 1
+          apk="${apks[0]}"
+          sdk="${ANDROID_HOME:?}"
+          buildtools="$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -x "$buildtools/apksigner"
+          test -x "$buildtools/aapt"
+          {
+            echo "APK inspection report"
+            echo "Source commit: 9cfae28e81dc7692dbc15c8a3d89f5a0a01a0a51"
+            echo "APK: $(basename "$apk")"
+            echo
+            echo "SHA-256:"
+            sha256sum "$apk"
+            echo
+            echo "APK signature verification and signing certificate:"
+            "$buildtools/apksigner" verify --verbose --print-certs "$apk"
+            echo
+            echo "Package information:"
+            "$buildtools/aapt" dump badging "$apk" | head -n 35
+            echo
+            echo "Declared permissions:"
+            "$buildtools/aapt" dump permissions "$apk"
+          } | tee apk-inspection/report.txt
+
+      - name: Upload APK inspection report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openclaw-android-apk-inspection
+          path: apps/android/apk-inspection/report.txt
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Upload APK artifact
         if: success()
         uses: actions/upload-artifact@v4
