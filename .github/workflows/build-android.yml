@@ -1,0 +1,52 @@
+name: Build OpenClaw Android test APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout reviewed OpenClaw source
+        uses: actions/checkout@v4
+        with:
+          repository: openclaw/openclaw
+          ref: 9cfae28e81dc7692dbc15c8a3d89f5a0a01a0a51
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build third-party debug APK
+        working-directory: apps/android
+        run: ./gradlew :app:assembleThirdPartyDebug --no-daemon
+
+      - name: Upload APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openclaw-android-thirdparty-debug
+          path: apps/android/app/build/outputs/apk/thirdParty/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
