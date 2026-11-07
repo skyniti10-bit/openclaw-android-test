@@ -24,8 +24,13 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub-hosted ubuntu runners include an Android SDK.
+      # Avoid setup-android's sdkmanager tools update, which failed in run #2.
+      - name: Check preinstalled Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+          test -d "${ANDROID_HOME:?ANDROID_HOME not set}"
+          ls -la "${ANDROID_HOME}/platforms" || true
 
       - name: Set up Node
         uses: actions/setup-node@v4
